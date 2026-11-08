@@ -363,15 +363,18 @@ Worktrees.browse = function()
         return
     end
 
+    local current_path = git.get_worktree_root(invoking_cwd)
     local items = {}
     for _, wt in pairs(worktrees) do
-        local branch = wt.name or (wt.detached and "(detached HEAD)") or "(unknown branch)"
-        table.insert(items, {
-            label = string.format("%s  %s", wt.path, branch),
+        local branch = wt.name or (wt.detached and "detached") or "(unknown branch)"
+        local item = {
+            label = string.format("%s  %s", branch, wt.path),
             path = wt.path,
             branch = wt.name,
+            current = wt.path == current_path,
             worktree = wt,
-        })
+        }
+        table.insert(items, item)
     end
     table.sort(items, function(a, b) return a.path < b.path end)
     table.insert(items, { label = "+ Create/open worktree by path…", create = true })
