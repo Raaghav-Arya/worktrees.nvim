@@ -27,6 +27,7 @@ Features:
 - Configurable base path and path templates for new worktrees
 - Automatic file correspondence when switching between worktrees
 - Lifecycle hooks for create, delete, and switch events
+- Configurable picker and tab reuse/open behavior
 - Customizable commands and key mappings
 
 ==============================================================================
@@ -41,7 +42,7 @@ Features:
 
 Using lazy.nvim: >lua
     {
-        "afonsofrancof/worktrees.nvim",
+        "Raaghav-Arya/worktrees.nvim",
         config = function()
             require("worktrees").setup()
         end,
@@ -50,7 +51,7 @@ Using lazy.nvim: >lua
 
 Using packer.nvim: >lua
     use {
-        "afonsofrancof/worktrees.nvim",
+        "Raaghav-Arya/worktrees.nvim",
         config = function()
             require("worktrees").setup()
         end,
@@ -58,7 +59,7 @@ Using packer.nvim: >lua
 <
 
 Using vim-plug: >vim
-    Plug 'afonsofrancof/worktrees.nvim'
+    Plug 'Raaghav-Arya/worktrees.nvim'
 <
 
 Then in your init.lua: >lua
@@ -80,10 +81,15 @@ Default configuration: >lua
         -- Use {branch} as placeholder for branch name, or provide a function(branch) -> path
         path_template = "{branch}",
 
+        -- Preserve original behavior or reuse/open a tab
+        open_mode = "current", -- "current" | "tab"
+        picker = nil, -- optional function(items, on_choice) UI adapter
+
         -- Lifecycle hooks (optional)
         on_create = nil, -- function(path)
         on_delete = nil, -- function(path)
         on_switch = nil, -- function(from_path, to_path)
+        on_tab_open = nil, -- function(context)
 
         -- Command names for interactive functions
         commands = {
@@ -125,6 +131,24 @@ path_template ~
     - "wt-{branch}" - Prefixes worktree directories with "wt-"
     - "{branch}-worktree" - Suffixes worktree directories with "-worktree"
 
+                                                      *worktrees-config-open_mode*
+open_mode ~
+    Type: string
+    Default: "current"
+
+    "current" preserves the original current-buffer switching behavior.
+    "tab" reuses an existing tab whose cwd belongs to the selected worktree,
+    or opens a new tab with tab-local cwd set to that worktree.
+
+                                                       *worktrees-config-picker*
+picker ~
+    Type: function|nil
+    Default: nil
+
+    Optional function(items, on_choice) adapter. Items have label, path,
+    branch, and worktree fields; the create-by-path item has create = true.
+    The default picker uses vim.ui.select.
+
                                                      *worktrees-config-on_create*
 on_create ~
     Type: function|nil
@@ -151,6 +175,16 @@ on_switch ~
 
     Called after a successful worktree switch. Receives the absolute paths of
     the worktree switched from and the worktree switched to.
+
+                                                   *worktrees-config-on_tab_open*
+on_tab_open ~
+    Type: function|nil
+    Default: nil
+    Signature: function(context)
+
+    Called only when tab mode opens a new tab, after it is current and its
+    tab-local cwd is set. Context includes path, branch, tab, from_tab,
+    created, and reused. Callback errors are reported and isolated.
 
                                                       *worktrees-config-commands*
 commands ~
@@ -187,6 +221,11 @@ mappings ~
     worktrees (excluding the current one) and switches to the selected one.
     Attempts to open the corresponding file in the target worktree if it exists.
 
+                                                         *:WorktreeBrowse*
+:WorktreeBrowse
+    Lists all non-bare worktrees, including the current one, plus a create/open
+    by path entry. Existing unrelated directories are never overwritten.
+
 ==============================================================================
 6. FUNCTIONS                                               *worktrees-functions*
 
@@ -206,6 +245,11 @@ worktrees.delete()
                                                         *worktrees.switch()*
 worktrees.switch()
     Interactive worktree switching function. Same as |:WorktreeSwitch|.
+
+                                                         *worktrees.browse()*
+worktrees.browse()
+    Browse all worktrees and create/open a worktree by path. Same as
+    |:WorktreeBrowse|.
 
 Utility Functions ~
 
