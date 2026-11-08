@@ -47,8 +47,7 @@ Worktrees.config = {
     -- "current" preserves the original behavior; "tab" reuses a matching
     -- tab or creates a new tab with tab-local cwd set to the worktree.
     open_mode = "current",
-    -- Optional adapter: function(items, on_choice), where items have label,
-    -- path, branch, and create fields. Defaults to vim.ui.select.
+    -- Optional adapter: function(items, on_choice). Defaults to vim.ui.select.
     picker = nil,
 
     -- Lifecycle hooks (optional)
@@ -66,7 +65,6 @@ Worktrees.config = {
         create = "WorktreeCreate",
         delete = "WorktreeDelete",
         switch = "WorktreeSwitch",
-        browse = "WorktreeBrowse",
     },
 
     -- Optional key mappings
@@ -348,124 +346,6 @@ H.dispatch_activation = function(context)
     end
 end
 
---- Open a Snacks/custom picker with all worktrees and a create-by-path item.
-Worktrees.browse = function()
-    local invoking_cwd = vim.fn.getcwd()
-    local invoking_tab = vim.api.nvim_get_current_tabpage()
-    local root = git.get_repo_root(invoking_cwd)
-    if not root then
-        H.notify("Not in a git repository", vim.log.levels.ERROR)
-        return
-    end
-    local worktrees = git.get_worktrees(root)
-    if not worktrees then
-        H.notify("Failed to list git worktrees", vim.log.levels.ERROR)
-        return
-    end
-
-    local current_path = git.get_worktree_root(invoking_cwd)
-    local items = {}
-    for _, wt in pairs(worktrees) do
-        local branch = wt.name or (wt.detached and "detached") or "(unknown branch)"
-        local item = {
-            label = string.format("%s  %s", branch, wt.path),
-            path = wt.path,
-            branch = wt.name,
-            current = wt.path == current_path,
-            worktree = wt,
-        }
-        table.insert(items, item)
-    end
-    table.sort(items, function(a, b) return a.path < b.path end)
-    table.insert(items, { label = "+ Create/open worktree by path…", create = true })
-
-    local function activate_worktree(worktree, from_path, from_tab, created)
-        if Worktrees.config.open_mode == "current" then
-            local ok = Worktrees.utils.switch_worktree(worktree.path, true)
-            if ok then
-                H.emit("WorktreeActivated", {
-                    path = worktree.path,
-                    branch = worktree.name,
-                    tab = vim.api.nvim_get_current_tabpage(),
-                    from_tab = from_tab,
-                    created = created or false,
-                    reused = false,
-                })
-            end
-            return
-        end
-        local context = H.open_worktree_tab(worktree, from_path, from_tab)
-        if context then
-            context.created = created or false
-            H.dispatch_activation(context)
-        end
-    end
-
-    local function activate(item)
-        if not item then return end
-        if item.create then
-            vim.ui.input({ prompt = "Worktree path: " }, function(input)
-                if not input or vim.trim(input) == "" then return end
-                input = vim.fn.expand(vim.trim(input))
-                local is_absolute = input:match("^[/\\]") or input:match("^%a:[/\\]")
-                local path = is_absolute and vim.fs.normalize(input)
-                    or vim.fs.normalize(vim.fn.fnamemodify(vim.fs.joinpath(invoking_cwd, input), ":p"))
-                local existing = worktrees[path]
-                if existing then
-                    activate_worktree(existing, git.get_worktree_root(invoking_cwd), invoking_tab)
-                    return
-                end
-                if vim.uv.fs_stat(path) then
-                    H.notify("Path exists but is not a registered worktree: " .. path, vim.log.levels.ERROR)
-                    return
-                end
-                local result = vim.system({ "git", "-C", root, "worktree", "add", path }, { text = true }):wait()
-                -- Git normally derives a new branch from the directory name.
-                -- A valid filesystem path can contain characters (notably
-                -- spaces) that are not allowed in branch names; retry detached
-                -- in that specific case rather than rejecting the path.
-                if result.code ~= 0 and (result.stderr or ""):match("not a valid branch name") then
-                    result = vim.system({ "git", "-C", root, "worktree", "add", "--detach", path }, { text = true }):wait()
-                end
-                if result.code ~= 0 then
-                    H.notify("Failed to create worktree: " .. (result.stderr or "unknown Git error"), vim.log.levels.ERROR)
-                    return
-                end
-                local updated = git.get_worktrees(root)
-                local created = updated and updated[path]
-                if not created then
-                    H.notify("Git created the worktree but it could not be discovered: " .. path, vim.log.levels.ERROR)
-                    return
-                end
-                local context = {
-                    path = path,
-                    branch = created.name,
-                    from_path = git.get_worktree_root(invoking_cwd),
-                    from_tab = invoking_tab,
-                    created = true,
-                    reused = false,
-                }
-                H.call_hook("on_create", path)
-                H.emit("WorktreeCreated", context)
-                activate_worktree(created, context.from_path, invoking_tab, true)
-            end)
-            return
-        end
-        activate_worktree(item.worktree, git.get_worktree_root(invoking_cwd), invoking_tab)
-    end
-
-    if Worktrees.config.picker then
-        Worktrees.config.picker(items, activate)
-    else
-        vim.ui.select(items, {
-            prompt = "Select worktree",
-            format_item = function(item) return item.label end,
-        }, function(_, index)
-            activate(index and items[index])
-        end)
-    end
-end
-
 --- Interactive worktree creation
 Worktrees.create = function()
     vim.ui.input({
@@ -573,20 +453,30 @@ Worktrees.switch = function(change_root)
     for _, wt in ipairs(other_worktrees) do
         local branch_info = wt.name or vim.fn.fnamemodify(wt.path, ":t")
         local label = branch_info .. " (" .. wt.path .. ")"
-        table.insert(items, label)
+        table.insert(items, {
+            label = label,
+            path = wt.path,
+            branch = wt.name,
+            worktree = wt,
+        })
     end
 
-    vim.ui.select(items, {
-        prompt = "Select worktree to switch to:",
-    }, function(choice, idx)
-        if not choice then
+    local function on_choice(item)
+        if not item then
             H.notify("Worktree switch cancelled", vim.log.levels.INFO)
             return
         end
+        Worktrees.utils.switch_worktree(item.path, change_root)
+    end
 
-        local selected_worktree = other_worktrees[idx]
-        Worktrees.utils.switch_worktree(selected_worktree.path,change_root)
-    end)
+    if Worktrees.config.picker then
+        Worktrees.config.picker(items, on_choice)
+    else
+        vim.ui.select(items, {
+            prompt = "Select worktree to switch to:",
+            format_item = function(item) return item.label end,
+        }, function(item) on_choice(item) end)
+    end
 end
 
 -- Helper data ================================================================
@@ -610,7 +500,6 @@ H.setup_config = function(config)
     H.check_type("commands.create", config.commands.create, "string")
     H.check_type("commands.delete", config.commands.delete, "string")
     H.check_type("commands.switch", config.commands.switch, "string")
-    H.check_type("commands.browse", config.commands.browse, "string")
     H.check_type("open_mode", config.open_mode, "string")
     if config.open_mode ~= "current" and config.open_mode ~= "tab" then
         H.error("`open_mode` should be 'current' or 'tab'")
@@ -657,11 +546,6 @@ H.create_commands = function(commands)
             commands.switch,
             Worktrees.switch,
             "Switch to a git worktree (interactive)",
-        },
-        {
-            commands.browse,
-            Worktrees.browse,
-            "Browse and open git worktrees",
         },
     }
 

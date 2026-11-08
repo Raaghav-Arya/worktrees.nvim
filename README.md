@@ -135,7 +135,6 @@ require('worktrees').setup({
 | `:WorktreeCreate` | Interactively create a new worktree |
 | `:WorktreeDelete` | Delete a worktree with an interactive selector |
 | `:WorktreeSwitch` | Switch to another worktree with an interactive selector |
-| `:WorktreeBrowse` | Browse every worktree and create/open by path |
 
 ### Functions (Interactive UI)
 
@@ -145,9 +144,6 @@ require('worktrees').create()
 
 -- Switch to a worktree interactively
 require('worktrees').switch()
-
--- Browse all worktrees and create/open one by path
-require('worktrees').browse()
 
 -- Delete a worktree interactively
 require('worktrees').delete()
@@ -186,13 +182,11 @@ require('worktrees').utils.delete_worktree("path/to/worktree")
    - If the current file exists in the target worktree: Switch to that file
     - Otherwise: Change to the worktree directory and open the startup buffer
 
-### Browse, tab mode, picker adapters, and hooks
-
-`browse()` lists every non-bare worktree, including the current one, and a create/open-by-path entry. Relative paths are resolved against the cwd where browsing began. Registered paths activate the existing worktree; existing unrelated directories are left untouched. Git normally derives a branch from the directory name; if that name is not a valid Git branch (for example, it contains spaces), the plugin retries as a detached worktree.
+### Tab mode, picker adapters, and hooks
 
 With `open_mode = "tab"`, activation selects an existing tab whose Git worktree root matches the target, or creates a new tab with tab-local cwd set to the worktree. New tabs are labeled through `vim.t.name`. The default `"current"` preserves existing current-buffer switching behavior.
 
-The optional picker adapter receives `{ label, path, branch, worktree }` records (the create item has `create = true`) and an `on_choice(item)` callback. A Snacks adapter can retain the original item on the picker result:
+The optional picker adapter receives `{ label, path, branch, worktree }` records and an `on_choice(item)` callback. A Snacks adapter can retain the original item on the picker result:
 
 ```lua
 picker = function(items, on_choice)

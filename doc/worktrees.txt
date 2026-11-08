@@ -146,7 +146,7 @@ picker ~
     Default: nil
 
     Optional function(items, on_choice) adapter. Items have label, path,
-    branch, and worktree fields; the create-by-path item has create = true.
+    branch, and worktree fields.
     The default picker uses vim.ui.select.
 
                                                      *worktrees-config-on_create*
@@ -221,10 +221,6 @@ mappings ~
     worktrees (excluding the current one) and switches to the selected one.
     Attempts to open the corresponding file in the target worktree if it exists.
 
-                                                         *:WorktreeBrowse*
-:WorktreeBrowse
-    Lists all non-bare worktrees, including the current one, plus a create/open
-    by path entry. Existing unrelated directories are never overwritten.
 
 ==============================================================================
 6. FUNCTIONS                                               *worktrees-functions*
@@ -245,11 +241,6 @@ worktrees.delete()
                                                         *worktrees.switch()*
 worktrees.switch()
     Interactive worktree switching function. Same as |:WorktreeSwitch|.
-
-                                                         *worktrees.browse()*
-worktrees.browse()
-    Browse all worktrees and create/open a worktree by path. Same as
-    |:WorktreeBrowse|.
 
 Utility Functions ~
 
