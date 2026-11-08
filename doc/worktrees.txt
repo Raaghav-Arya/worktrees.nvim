@@ -138,7 +138,8 @@ open_mode ~
 
     "current" preserves the original current-buffer switching behavior.
     "tab" reuses an existing tab whose cwd belongs to the selected worktree,
-    or opens a new tab with tab-local cwd set to that worktree.
+    or opens a new tab with tab-local cwd set to that worktree. Activated tabs
+    are named "Tab <number>: <worktree>" using vim.t.name.
 
                                                        *worktrees-config-picker*
 picker ~

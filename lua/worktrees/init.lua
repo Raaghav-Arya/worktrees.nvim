@@ -324,7 +324,8 @@ H.open_worktree_tab = function(worktree, from_path, from_tab)
         target_tab, reused = vim.api.nvim_get_current_tabpage(), false
     end
     local label = worktree.name or ((worktree.detached and "detached-" or "") .. vim.fn.fnamemodify(target, ":t"))
-    if not vim.t.name or vim.t.name == "" then vim.t.name = label end
+    local tabnr = vim.api.nvim_tabpage_get_number(target_tab)
+    vim.t.name = string.format("Tab %d: %s", tabnr, label)
 
     return {
         path = target,

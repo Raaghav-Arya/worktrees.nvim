@@ -184,7 +184,7 @@ require('worktrees').utils.delete_worktree("path/to/worktree")
 
 ### Tab mode, picker adapters, and hooks
 
-With `open_mode = "tab"`, activation selects an existing tab whose Git worktree root matches the target, or creates a new tab with tab-local cwd set to the worktree. New tabs are labeled through `vim.t.name`. The default `"current"` preserves existing current-buffer switching behavior.
+With `open_mode = "tab"`, activation selects an existing tab whose Git worktree root matches the target, or creates a new tab with tab-local cwd set to the worktree. Activated tabs are labeled `Tab <number>: <worktree>` through `vim.t.name`. The default `"current"` preserves existing current-buffer switching behavior.
 
 The optional picker adapter receives `{ label, path, branch, worktree }` records and an `on_choice(item)` callback. A Snacks adapter can retain the original item on the picker result:
 

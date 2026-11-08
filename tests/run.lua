@@ -48,7 +48,7 @@ assert(listed[linked].name == "feature", "branch parsing failed")
 worktrees.switch()
 local linked_tab = vim.api.nvim_get_current_tabpage()
 assert(vim.fn.getcwd() == linked, "new tab cwd is not the target worktree")
-assert(vim.t.name == "feature", "new tab was not named")
+assert(vim.t.name == string.format("Tab %d: feature", vim.api.nvim_tabpage_get_number(linked_tab)), "new tab was not named")
 assert(opened == 1 and switched == 1 and activated == 1, "new-tab hooks/events incorrect")
 
 vim.cmd("tabfirst")
@@ -56,6 +56,7 @@ local tab_count = #vim.api.nvim_list_tabpages()
 worktrees.switch()
 assert(#vim.api.nvim_list_tabpages() == tab_count, "switch created a duplicate tab")
 assert(vim.api.nvim_get_current_tabpage() == linked_tab, "existing tab was not focused")
+assert(vim.t.name == string.format("Tab %d: feature", vim.api.nvim_tabpage_get_number(linked_tab)), "reused tab name is incorrect")
 assert(opened == 1 and switched == 2 and activated == 2, "reuse hooks/events incorrect")
 
 local old_input, old_select = vim.ui.input, vim.ui.select
